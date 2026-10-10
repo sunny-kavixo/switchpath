@@ -29,7 +29,7 @@ Build mode: Fast
   Learner check: Try all three scenarios in the preview. Confirm the alternative route reaches the same saved date without being reported as a task failure, and inspect the real regression replay results.
   Commit: `Add fixed alternative and replay scenarios`
 
-- [ ] **3. Capture trustworthy evidence and handle run failures safely**
+- [x] **3. Capture trustworthy evidence and handle run failures safely**
   Becomes usable: A run shows only real progress and one of Passed, Confirmed Failure, Inconclusive, or Test Error, with Test Incomplete and the actual reason when execution stops. Users can inspect authentic evidence, assertion details, retry from reset state, and download available evidence/report artifacts.
   Why now: Makes the core result auditable and prevents timeouts, missing evidence, or infrastructure errors from masquerading as defects before the full interface is polished.
   PRD ref: `prd.md > Browser Execution and Comparison`, `Evidence, Retry, and Regression Test`, `States and Boundaries`

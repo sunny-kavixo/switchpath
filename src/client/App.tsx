@@ -3,10 +3,13 @@ import { useState } from 'react';
 type RunResult = {
   status: 'submitting' | 'running' | 'passed' | 'confirmed_failure' | 'inconclusive' | 'test_error';
   reason?: string;
+  executionState?: 'running' | 'completed' | 'incomplete';
+  events?: Array<{ stage: string; message: string; timestamp: string }>;
+  artifacts?: Array<{ id: string; contentType: string; size: number }>;
   result?: {
     scenarioId: 'broken' | 'fixed' | 'alternative';
     status: 'passed' | 'confirmed_failure' | 'inconclusive';
-    mouse: { expectedDate: string; observedDate: string; verified: boolean };
+    mouse: { initialDate: string; expectedDate: string; observedDate: string; verified: boolean };
     keyboard: Array<{
       key: 'Enter' | 'Space' | 'Direct date entry';
       focusedConfirm: boolean;
@@ -38,10 +41,15 @@ export function App() {
   const [run, setRun] = useState<RunResult | null>(null);
   const [starting, setStarting] = useState(false);
   const [scenarioId, setScenarioId] = useState<ScenarioId>('broken');
+  const [runId, setRunId] = useState<string>();
+  const [progressMessage, setProgressMessage] = useState('Preparing a fresh isolated run.');
 
   async function startTest() {
     setStarting(true);
     setRun({ status: 'submitting' });
+    setRunId(undefined);
+    setProgressMessage('Submitting the selected scenario.');
+    let eventStream: EventSource | undefined;
     try {
       const response = await fetch('/api/runs', {
         method: 'POST',
@@ -54,7 +62,17 @@ export function App() {
         return;
       }
       const { runId } = (await response.json()) as { runId: string };
+      setRunId(runId);
       setRun({ status: 'running' });
+      eventStream = new EventSource(`/api/runs/${encodeURIComponent(runId)}/events`);
+      eventStream.addEventListener('progress', (event) => {
+        try {
+          const progress = JSON.parse((event as MessageEvent<string>).data) as { message?: unknown };
+          if (typeof progress.message === 'string') setProgressMessage(progress.message);
+        } catch {
+          setProgressMessage('Receiving browser run progress.');
+        }
+      });
       for (;;) {
         const resultResponse = await fetch(`/api/runs/${encodeURIComponent(runId)}`);
         if (!resultResponse.ok) {
@@ -69,6 +87,7 @@ export function App() {
     } catch {
       setRun({ status: 'test_error', reason: 'The API could not be reached.' });
     } finally {
+      eventStream?.close();
       setStarting(false);
     }
   }
@@ -151,17 +170,41 @@ export function App() {
 
         <div className="result-bar" role="status" aria-live="polite">
           {!run && <><span className="status-mark neutral" aria-hidden="true">i</span><span>No test has run yet. Start the test to capture actual browser results.</span></>}
-          {run?.status === 'running' && <><span className="status-mark active" aria-hidden="true">…</span><span>Playwright is executing real mouse and keyboard journeys.</span></>}
+          {run?.status === 'running' && <><span className="status-mark active" aria-hidden="true">…</span><span>{progressMessage}</span></>}
           {run?.status === 'passed' && <><span className="status-mark neutral" aria-hidden="true">✓</span><span>Passed: the independent booking-state check verified task completion.</span></>}
           {run?.status === 'confirmed_failure' && <><span className="status-mark failure" aria-hidden="true">!</span><span>Confirmed Failure: mouse saved the date; keyboard activation did not.</span></>}
-          {run?.status === 'inconclusive' && <><span className="status-mark active" aria-hidden="true">?</span><span>Inconclusive: the browser evidence does not establish the task outcome.</span></>}
-          {run?.status === 'test_error' && <><span className="status-mark failure" aria-hidden="true">!</span><span>Test Error: {run.reason}</span></>}
+          {run?.status === 'inconclusive' && <><span className="status-mark active" aria-hidden="true">?</span><span>{run.reason ?? 'Inconclusive — Completion Not Verified. The independent booking-state assertion did not establish task completion.'}</span></>}
+          {run?.status === 'test_error' && <><span className="status-mark failure" aria-hidden="true">!</span><span>{run.executionState === 'incomplete' ? `Test Incomplete — ${run.reason} Test Error; this does not prove an accessibility defect.` : `Test Error: ${run.reason}`}</span></>}
           {run?.status === 'submitting' && <><span className="status-mark active" aria-hidden="true">…</span><span>Submitting the scenario request.</span></>}
         </div>
         {run?.result?.regressionReplay && (
           <p className="replay-summary" role="status">
             Standalone regression replay: broken {run.result.regressionReplay.brokenFailsAsExpected ? 'fails as expected' : 'result unverified'}; fixed {run.result.regressionReplay.fixedPasses ? 'passes' : 'result unverified'}.
           </p>
+        )}
+        {runId && (run?.artifacts?.length ?? 0) > 0 && (
+          <section className="evidence-downloads" aria-labelledby="evidence-title">
+            <div className="evidence-heading">
+              <h3 id="evidence-title">Captured evidence</h3>
+              <a className="download-link" href={`/api/runs/${encodeURIComponent(runId)}/report`}>Download evidence report</a>
+            </div>
+            <ul>
+              {run?.artifacts?.map((artifact) => (
+                <li key={artifact.id}>
+                  <a href={`/api/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifact.id)}`} download={artifact.id}>
+                    Download {artifact.id}
+                  </a>
+                  <span>{Math.max(1, Math.round(artifact.size / 1024))} KB</span>
+                </li>
+              ))}
+            </ul>
+            {run?.status === 'confirmed_failure' && run.result?.regressionReplay?.brokenFailsAsExpected && run.result.regressionReplay.fixedPasses && (
+              <a className="download-link" href={`/api/runs/${encodeURIComponent(runId)}/regression-test`}>Download verified standalone regression test</a>
+            )}
+          </section>
+        )}
+        {run && run.status !== 'running' && run.status !== 'submitting' && run.status !== 'passed' && (
+          <button className="retry-action" type="button" onClick={startTest}>Retry from clean state</button>
         )}
       </section>
 
