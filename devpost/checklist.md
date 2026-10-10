@@ -19,12 +19,12 @@ Build mode: Fast
   Learner check: In the Codespaces preview, start the broken scenario and confirm the mouse side shows the saved date while the keyboard side shows the independently observed unchanged date and failed action.
   Commit: `Add real broken booking comparison`
 
-- [ ] **2. Pass fixed and alternative routes; replay the regression test**
+- [x] **2. Pass fixed and alternative routes; replay the regression test**
   Becomes usable: The controlled demo proves all three approved scenarios. The fixed primary action succeeds by mouse, Enter, and Space. The alternative route uses Tab/Shift+Tab to reach `Enter new date`, types the expected strict `YYYY-MM-DD` date through real keyboard events, Tabs to `Save new date`, and activates it with Enter or Space. A generated standalone Playwright test is actually replayed: it fails on broken and passes on fixed.
   Why now: Completes the core booking proof, protects against false failures from a valid alternate route, and makes regression evidence repeatable before dashboard polish.
   PRD ref: `prd.md > Browser Execution and Comparison`, `Evidence, Retry, and Regression Test`, `States and Boundaries`
   Spec ref: `spec.md > Controlled Booking Fixture and State Oracle`, `Scenario and Action Catalog`, `Evidence and Regression Replay`, `Data Model`
-  Build: Add fixed and alternative fixture variants with independent reset states. Use only Tab, Shift+Tab, `keyboard.type`, Enter, and Space for keyboard journeys; no click, programmatic focus/fill, DOM mutation, or direct state write. Generate the regression test from the fixed template only after an independently confirmed failure, then execute it against the broken and fixed fixtures.
+  Build: Add fixed and alternative fixture variants with independent reset states and a minimal native scenario selector so the early checkpoint can exercise all three real routes. Use only Tab, Shift+Tab, `keyboard.type`, Enter, and Space for keyboard journeys; no click, programmatic focus/fill, DOM mutation, or direct state write. Generate the regression test from the fixed template only after an independently confirmed failure, then execute it against the broken and fixed fixtures. Premium dashboard polish remains in Slice 4.
   Verify (mechanical): Run `npm test` and `npm run test:e2e`. Assert mouse and keyboard completion on fixed, oracle-confirmed completion and task-level Passed on alternative even though the primary control was not activated, and real generated-test replay failure on broken/pass on fixed. Confirm malformed dates do not change booking state.
   Learner check: Try all three scenarios in the preview. Confirm the alternative route reaches the same saved date without being reported as a task failure, and inspect the real regression replay results.
   Commit: `Add fixed alternative and replay scenarios`
@@ -61,7 +61,7 @@ Build mode: Fast
 
 ## Hands-on Checkpoints
 
-- [ ] Early usable behavior explored — after Slice 2, review the complete three-scenario proof and regression replay before the dashboard polish slice.
+- [x] Early usable behavior explored — after Slice 2, the learner tested Broken Confirmation, Fixed Confirmation, and Direct Date Entry in the Codespaces preview and approved the checkpoint.
 - [ ] Final kick-the-tires exploration and feedback completed
 
 ## Final Review
@@ -81,3 +81,5 @@ Reflection: [offered/answered/declined/already covered — personal answer belon
 Activity mode: Fast
 
 ## Revisions
+
+- Moved the minimal accessible scenario selector into Slice 2 from Slice 4 so the planned early hands-on checkpoint can exercise each real route; full dashboard polish remains in Slice 4.

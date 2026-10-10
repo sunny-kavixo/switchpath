@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createApp, safeWorkerEnvironment } from './app';
-import { isAllowedFixtureRequest } from './booking-fixture';
+import { INITIAL_BOOKING_DATE, isAllowedFixtureRequest, startBookingFixture } from './booking-fixture';
 
 test('run endpoint rejects unknown scenario identifiers before worker launch', async () => {
   const app = createApp();
@@ -22,14 +22,6 @@ test('run endpoint rejects arbitrary fields before worker launch', async () => {
     payload: { scenarioId: 'broken', url: 'http://127.0.0.1', command: 'whoami' },
   });
   assert.equal(response.statusCode, 400);
-  await app.close();
-});
-
-test('recognized scenarios without an implemented slice do not return fake results', async () => {
-  const app = createApp();
-  const response = await app.inject({ method: 'POST', url: '/api/runs', payload: { scenarioId: 'fixed' } });
-  assert.equal(response.statusCode, 501);
-  assert.deepEqual(response.json(), { message: 'This scenario is not implemented yet.' });
   await app.close();
 });
 
@@ -68,4 +60,19 @@ test('API exposes no arbitrary browser automation route', async () => {
   const response = await app.inject({ method: 'POST', url: '/api/browser/click', payload: { selector: '#confirm' } });
   assert.equal(response.statusCode, 404);
   await app.close();
+});
+
+test('booking fixture rejects impossible ISO dates without changing oracle state', async () => {
+  const fixture = await startBookingFixture('alternative');
+  try {
+    const response = await fetch(`${fixture.origin}/__fixture/reschedule`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ date: '2026-02-30' }),
+    });
+    assert.equal(response.status, 400);
+    assert.equal(fixture.readBookingDate(), INITIAL_BOOKING_DATE);
+  } finally {
+    await fixture.close();
+  }
 });

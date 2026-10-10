@@ -7,21 +7,32 @@ import { resolve } from 'node:path';
 
 type ScenarioId = 'broken' | 'fixed' | 'alternative';
 type RunResult = {
-  scenarioId: 'broken';
-  status: 'confirmed_failure' | 'inconclusive';
+  scenarioId: ScenarioId;
+  status: 'passed' | 'confirmed_failure' | 'inconclusive';
   mouse: { expectedDate: string; observedDate: string; verified: boolean };
   keyboard: Array<{
-    key: 'Enter' | 'Space';
+    key: 'Enter' | 'Space' | 'Direct date entry';
     focusedConfirm: boolean;
+    focusedDateField?: boolean;
+    focusedSaveAction?: boolean;
     initialDate: string;
     observedDate: string;
     unchanged: boolean;
+    completed: boolean;
   }>;
+  regressionReplay?: {
+    brokenExitCode: number | null;
+    fixedExitCode: number | null;
+    brokenFailsAsExpected: boolean;
+    fixedPasses: boolean;
+  };
+  regressionTestSource?: string;
 };
 type RunRecord = {
-  status: 'running' | 'confirmed_failure' | 'inconclusive' | 'test_error';
+  status: 'running' | 'passed' | 'confirmed_failure' | 'inconclusive' | 'test_error';
   reason?: string;
-  result?: RunResult;
+  result?: Omit<RunResult, 'regressionTestSource'>;
+  regressionTestSource?: string;
 };
 type WorkerMessage =
   | { type: 'result'; result: RunResult }
@@ -48,13 +59,13 @@ const startResponseSchema = {
 const statusResponseSchema = {
   type: 'object', additionalProperties: false,
   properties: {
-    status: { type: 'string', enum: ['running', 'confirmed_failure', 'inconclusive', 'test_error'] },
+    status: { type: 'string', enum: ['running', 'passed', 'confirmed_failure', 'inconclusive', 'test_error'] },
     reason: { type: 'string' },
     result: {
       type: 'object', additionalProperties: false,
       properties: {
-        scenarioId: { const: 'broken' },
-        status: { type: 'string', enum: ['confirmed_failure', 'inconclusive'] },
+        scenarioId: { type: 'string', enum: scenarioIds },
+        status: { type: 'string', enum: ['passed', 'confirmed_failure', 'inconclusive'] },
         mouse: {
           type: 'object', additionalProperties: false,
           properties: { expectedDate: { type: 'string' }, observedDate: { type: 'string' }, verified: { type: 'boolean' } },
@@ -64,11 +75,21 @@ const statusResponseSchema = {
           type: 'array', items: {
             type: 'object', additionalProperties: false,
             properties: {
-              key: { type: 'string', enum: ['Enter', 'Space'] }, focusedConfirm: { type: 'boolean' },
-              initialDate: { type: 'string' }, observedDate: { type: 'string' }, unchanged: { type: 'boolean' },
+              key: { type: 'string', enum: ['Enter', 'Space', 'Direct date entry'] }, focusedConfirm: { type: 'boolean' },
+              focusedDateField: { type: 'boolean' }, focusedSaveAction: { type: 'boolean' },
+              initialDate: { type: 'string' }, observedDate: { type: 'string' }, unchanged: { type: 'boolean' }, completed: { type: 'boolean' },
             },
-            required: ['key', 'focusedConfirm', 'initialDate', 'observedDate', 'unchanged'],
+            required: ['key', 'focusedConfirm', 'initialDate', 'observedDate', 'unchanged', 'completed'],
           },
+        },
+        regressionReplay: {
+          type: 'object', additionalProperties: false,
+          properties: {
+            brokenExitCode: { anyOf: [{ type: 'integer' }, { type: 'null' }] },
+            fixedExitCode: { anyOf: [{ type: 'integer' }, { type: 'null' }] },
+            brokenFailsAsExpected: { type: 'boolean' }, fixedPasses: { type: 'boolean' },
+          },
+          required: ['brokenExitCode', 'fixedExitCode', 'brokenFailsAsExpected', 'fixedPasses'],
         },
       },
       required: ['scenarioId', 'status', 'mouse', 'keyboard'],
@@ -93,9 +114,6 @@ export function createApp(options: { serveClient?: boolean } = {}): FastifyInsta
   app.post<{ Body: { scenarioId: ScenarioId } }>('/api/runs', {
     schema: { body: runBodySchema, response: { 202: startResponseSchema } },
   }, async (request, reply) => {
-    if (request.body.scenarioId !== 'broken') {
-      return reply.code(501).send({ message: 'This scenario is not implemented yet.' });
-    }
     if (activeWorker && activeWorker.exitCode === null) {
       return reply.code(503).send({ message: 'A browser run is already in progress.' });
     }
@@ -118,13 +136,15 @@ export function createApp(options: { serveClient?: boolean } = {}): FastifyInsta
         record.reason = 'Playwright worker timed out.';
         child.kill('SIGTERM');
       }
-    }, 30_000);
+    }, 120_000);
 
     child.on('message', (message: WorkerMessage) => {
       if (record.status !== 'running' || !isWorkerMessage(message)) return;
-      if (message.type === 'result' && message.result.scenarioId === 'broken') {
+      if (message.type === 'result') {
         record.status = message.result.status;
-        record.result = message.result;
+        const { regressionTestSource, ...publicResult } = message.result;
+        record.result = publicResult;
+        record.regressionTestSource = regressionTestSource;
       } else if (message.type === 'error') {
         record.status = 'test_error';
         record.reason = 'Playwright execution error.';
@@ -145,7 +165,7 @@ export function createApp(options: { serveClient?: boolean } = {}): FastifyInsta
       if (activeWorker === child) activeWorker = undefined;
     });
 
-    child.send({ scenarioId: 'broken' satisfies ScenarioId });
+    child.send({ scenarioId: request.body.scenarioId, runId });
     return reply.code(202).send({ runId, status: 'running' as const });
   });
 
@@ -173,6 +193,6 @@ function isWorkerMessage(value: unknown): value is WorkerMessage {
   const candidate = value as { type?: unknown; result?: { scenarioId?: unknown; status?: unknown }; reason?: unknown };
   if (candidate.type === 'error') return typeof candidate.reason === 'string';
   return candidate.type === 'result'
-    && candidate.result?.scenarioId === 'broken'
-    && ['confirmed_failure', 'inconclusive'].includes(String(candidate.result.status));
+    && scenarioIds.includes(candidate.result?.scenarioId as ScenarioId)
+    && ['passed', 'confirmed_failure', 'inconclusive'].includes(String(candidate.result?.status));
 }
