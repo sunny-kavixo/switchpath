@@ -218,3 +218,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+/devpost/learner-profile.md
+.env.*
+!.env.example
+
+# Node and Playwright generated artifacts
+node_modules/
+dist/
+playwright-report/
+test-results/

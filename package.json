@@ -1,0 +1,33 @@
+{
+  "name": "switchpath",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "tsx watch src/server/index.ts",
+    "dev:web": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "start": "tsx src/server/index.ts",
+    "test": "tsx --test src/server/app.test.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fastify/static": "10.1.6",
+    "fastify": "^5.6.2",
+    "playwright": "^1.56.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^24.7.2",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.0.4",
+    "concurrently": "^9.2.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.9"
+  }
+}
