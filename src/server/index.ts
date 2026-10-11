@@ -1,6 +1,6 @@
 import { createApp } from './app';
 
-const app = await createApp({ serveClient: true });
+const app = await createApp({ serveClient: true, testMode: process.env.NODE_ENV === 'test' });
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1';
 

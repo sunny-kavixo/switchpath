@@ -141,7 +141,7 @@ const statusResponseSchema = {
   required: ['status', 'executionState', 'events', 'artifacts'],
 } as const;
 
-export async function createApp(options: { serveClient?: boolean; workerTimeoutMs?: number } = {}): Promise<FastifyInstance> {
+export async function createApp(options: { serveClient?: boolean; workerTimeoutMs?: number; testMode?: boolean } = {}): Promise<FastifyInstance> {
   const app = Fastify({
     logger: false,
     bodyLimit: 1024,
@@ -185,7 +185,7 @@ export async function createApp(options: { serveClient?: boolean; workerTimeoutM
 
   app.post<{ Body: { scenarioId: ScenarioId } }>('/api/runs', {
     schema: { body: runBodySchema, response: { 202: startResponseSchema } },
-    config: { rateLimit: { max: 5, timeWindow: 60_000 } },
+    config: { rateLimit: { max: options.testMode ? 100 : 5, timeWindow: 60_000 } },
   }, async (request, reply) => {
     if (activeWorker && activeWorker.exitCode === null) {
       return reply.code(503).send({ message: 'A browser run is already in progress.' });

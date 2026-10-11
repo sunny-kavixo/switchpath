@@ -9,10 +9,10 @@ test('broken comparison exposes authentic evidence and supports a clean retry', 
   expect(startResponse.status()).toBe(202);
   const { runId } = (await startResponse.json()) as { runId: string };
   await expect(page.locator('.result-bar')).toContainText('Confirmed Failure', { timeout: 60_000 });
-  await expect(page.getByText('✓ Expected date saved')).toBeVisible();
-  await expect(page.getByText('Focused confirm')).toHaveCount(2);
-  await expect(page.getByText('Not saved')).toHaveCount(2);
-  await expect(page.getByText('2026-10-20')).toBeVisible();
+  await expect(page.locator('.assertion-list')).toContainText('Verified saved');
+  await expect(page.getByText('Confirm focused naturally')).toHaveCount(2);
+  await expect(page.getByText('Unchanged')).toHaveCount(2);
+  await expect(page.locator('.task-facts')).toContainText('2026-10-20');
   await expect(page.locator('.attempt-row strong')).toHaveText(['2026-10-10', '2026-10-10']);
   await expect(page.getByText('Standalone regression replay: broken fails as expected; fixed passes.')).toBeVisible();
 

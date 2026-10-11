@@ -37,6 +37,13 @@ const scenarioLabels: Record<ScenarioId, string> = {
   alternative: 'Direct date-entry route',
 };
 
+function formatTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf())
+    ? 'Time unavailable'
+    : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
 export function App() {
   const [run, setRun] = useState<RunResult | null>(null);
   const [starting, setStarting] = useState(false);
@@ -100,6 +107,10 @@ export function App() {
           <span>SwitchPath</span>
         </a>
         <span className="topbar-context">ACCESSIBILITY TESTING</span>
+        <nav className="primary-nav" aria-label="Main navigation">
+          <a href="#test-workspace" aria-current="page">Test workspace</a>
+          <a href="#run-evidence">Evidence</a>
+        </nav>
       </header>
 
       <section className="hero" id="main" aria-labelledby="headline">
@@ -115,6 +126,11 @@ export function App() {
             </label>
           ))}
         </fieldset>
+        <div className="task-facts" aria-label="Expected booking task state">
+          <div><span>BOOKING</span><strong>BK-2048</strong></div>
+          <div><span>CLEAN START</span><strong>2026-10-10</strong></div>
+          <div><span>EXPECTED DATE</span><strong>2026-10-20</strong></div>
+        </div>
         <button className="primary-action" type="button" onClick={startTest} disabled={starting}>
           {starting ? 'Running Playwright test…' : 'Start Accessibility Test'}
         </button>
@@ -135,13 +151,12 @@ export function App() {
             <div className="journey-title"><span className="route-dot mouse-dot" aria-hidden="true" />Mouse baseline</div>
             <p>Select a new booking date and confirm the change.</p>
             {run?.result ? (
-              <div className="observed-state">
-                <span>Booking state observed</span>
-                <strong>{run.result.mouse.observedDate}</strong>
-                <span className={run.result.mouse.verified ? 'state-pass' : 'state-fail'}>
-                  {run.result.mouse.verified ? '✓ Expected date saved' : '× Expected date not saved'}
-                </span>
-              </div>
+              <dl className="assertion-list">
+                <div><dt>Fresh booking</dt><dd>{run.result.mouse.initialDate}</dd></div>
+                <div><dt>Expected date</dt><dd>{run.result.mouse.expectedDate}</dd></div>
+                <div><dt>Observed booking</dt><dd>{run.result.mouse.observedDate}</dd></div>
+                <div><dt>Independent check</dt><dd className={run.result.mouse.verified ? 'state-pass' : 'state-fail'}>{run.result.mouse.verified ? 'Verified saved' : 'Not verified'}</dd></div>
+              </dl>
             ) : <div className="empty-state">Waiting for a real browser run</div>}
           </article>
           <article className="journey-panel">
@@ -156,10 +171,10 @@ export function App() {
                 {run.result.keyboard.map((attempt) => (
                   <div className="attempt-row" key={attempt.key}>
                     <span className="keycap">{attempt.key}</span>
-                    <span>{attempt.key === 'Direct date entry' ? 'Focused field and save action' : attempt.focusedConfirm ? 'Focused confirm' : 'Confirm not focused'}</span>
-                    <strong>{attempt.observedDate}</strong>
-                    <span className={attempt.unchanged ? 'state-fail' : 'state-pass'}>
-                      {attempt.unchanged ? 'Not saved' : 'Saved'}
+                    <span className="attempt-focus">{attempt.key === 'Direct date entry' ? 'Field + Save focused naturally' : attempt.focusedConfirm ? 'Confirm focused naturally' : 'Confirm not focused'}</span>
+                    <span className="attempt-state">Start {attempt.initialDate} → observed <strong>{attempt.observedDate}</strong></span>
+                    <span className={attempt.completed ? 'state-pass' : attempt.unchanged ? 'state-fail' : 'state-neutral'}>
+                      {attempt.completed ? 'Expected date saved' : attempt.unchanged ? 'Unchanged' : 'Completion not verified'}
                     </span>
                   </div>
                 ))}
@@ -174,7 +189,7 @@ export function App() {
           {run?.status === 'passed' && <><span className="status-mark neutral" aria-hidden="true">✓</span><span>Passed: the independent booking-state check verified task completion.</span></>}
           {run?.status === 'confirmed_failure' && <><span className="status-mark failure" aria-hidden="true">!</span><span>Confirmed Failure: mouse saved the date; keyboard activation did not.</span></>}
           {run?.status === 'inconclusive' && <><span className="status-mark active" aria-hidden="true">?</span><span>{run.reason ?? 'Inconclusive — Completion Not Verified. The independent booking-state assertion did not establish task completion.'}</span></>}
-          {run?.status === 'test_error' && <><span className="status-mark failure" aria-hidden="true">!</span><span>{run.executionState === 'incomplete' ? `Test Incomplete — ${run.reason} Test Error; this does not prove an accessibility defect.` : `Test Error: ${run.reason}`}</span></>}
+          {run?.status === 'test_error' && <><span className="status-mark failure" aria-hidden="true">!</span><span><strong>{run.executionState === 'incomplete' ? 'Test Incomplete · Test Error' : 'Test Error'}</strong><br />{run.reason} This does not prove an accessibility defect.</span></>}
           {run?.status === 'submitting' && <><span className="status-mark active" aria-hidden="true">…</span><span>Submitting the scenario request.</span></>}
         </div>
         {run?.result?.regressionReplay && (
@@ -182,30 +197,52 @@ export function App() {
             Standalone regression replay: broken {run.result.regressionReplay.brokenFailsAsExpected ? 'fails as expected' : 'result unverified'}; fixed {run.result.regressionReplay.fixedPasses ? 'passes' : 'result unverified'}.
           </p>
         )}
-        {runId && (run?.artifacts?.length ?? 0) > 0 && (
-          <section className="evidence-downloads" aria-labelledby="evidence-title">
-            <div className="evidence-heading">
-              <h3 id="evidence-title">Captured evidence</h3>
-              <a className="download-link" href={`/api/runs/${encodeURIComponent(runId)}/report`}>Download evidence report</a>
-            </div>
-            <ul>
-              {run?.artifacts?.map((artifact) => (
-                <li key={artifact.id}>
-                  <a href={`/api/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifact.id)}`} download={artifact.id}>
-                    Download {artifact.id}
-                  </a>
-                  <span>{Math.max(1, Math.round(artifact.size / 1024))} KB</span>
-                </li>
-              ))}
-            </ul>
-            {run?.status === 'confirmed_failure' && run.result?.regressionReplay?.brokenFailsAsExpected && run.result.regressionReplay.fixedPasses && (
-              <a className="download-link" href={`/api/runs/${encodeURIComponent(runId)}/regression-test`}>Download verified standalone regression test</a>
-            )}
-          </section>
-        )}
         {run && run.status !== 'running' && run.status !== 'submitting' && run.status !== 'passed' && (
           <button className="retry-action" type="button" onClick={startTest}>Retry from clean state</button>
         )}
+      </section>
+
+      <section className="timeline-section" aria-labelledby="timeline-title">
+        <div className="section-heading compact-heading">
+          <div><p className="eyebrow">EXECUTION RECORD</p><h2 id="timeline-title">Run timeline</h2></div>
+          <span className="timeline-count">{run?.events?.length ?? 0} events</span>
+        </div>
+        {run?.events?.length ? (
+          <ol className="timeline-list">
+            {run.events.map((event, index) => (
+              <li className="timeline-event" key={`${event.timestamp}-${index}`}>
+                <span className="timeline-marker" aria-hidden="true">{index === run.events!.length - 1 ? '●' : '○'}</span>
+                <time dateTime={event.timestamp}>{formatTime(event.timestamp)}</time>
+                <span className="event-stage">{event.stage.replaceAll('_', ' ')}</span>
+                <span className="event-message">{event.message}</span>
+              </li>
+            ))}
+          </ol>
+        ) : <p className="timeline-empty">Recorded browser events will appear here after a test runs.</p>}
+      </section>
+
+      <section className="evidence-section" id="run-evidence" aria-labelledby="evidence-title">
+        <div className="section-heading compact-heading">
+          <div><p className="eyebrow">AUTHENTIC ARTIFACTS</p><h2 id="evidence-title">Evidence and replay</h2></div>
+          {runId && (run?.artifacts?.length ?? 0) > 0 && <a className="download-link" href={`/api/runs/${encodeURIComponent(runId)}/report`}>Download evidence report</a>}
+        </div>
+        {run?.artifacts?.length ? (
+          <>
+            <ul className="artifact-list">
+              {run.artifacts.map((artifact) => (
+                <li key={artifact.id}>
+                  <span className="artifact-kind" aria-hidden="true">{artifact.contentType === 'image/png' ? 'IMG' : artifact.contentType === 'application/zip' ? 'ZIP' : artifact.id.endsWith('.log.json') ? 'LOG' : 'TS'}</span>
+                  <span className="artifact-name">{artifact.id}</span>
+                  <span className="artifact-size">{Math.max(1, Math.round(artifact.size / 1024))} KB</span>
+                  {runId && <a href={`/api/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifact.id)}`} download={artifact.id}>Download</a>}
+                </li>
+              ))}
+            </ul>
+            {runId && run.status === 'confirmed_failure' && run.result?.regressionReplay?.brokenFailsAsExpected && run.result.regressionReplay.fixedPasses && (
+              <div className="replay-proof"><span className="proof-mark" aria-hidden="true">✓</span><div><strong>Regression replay verified</strong><span>Broken fixture fails · Fixed fixture passes</span></div><a href={`/api/runs/${encodeURIComponent(runId)}/regression-test`} download>Download standalone test</a></div>
+            )}
+          </>
+        ) : <p className="timeline-empty">{run ? 'No supporting evidence was captured for this run.' : 'Screenshots, traces, logs, and reports appear here only after they are captured.'}</p>}
       </section>
 
       <footer className="footer-note">A valid alternative keyboard route will count as task success.</footer>
