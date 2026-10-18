@@ -1,0 +1,100 @@
+Existing completed runs from the latest release-followup verification. Source hashes rechecked October 12, 2026; not rerun for packaging.
+
+COMMAND OUTPUT: build
+npm notice run switchpath@0.1.0 build
+npm notice run tsc --noEmit && vite build
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 29 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.47 kB │ gzip:  0.30 kB
+dist/assets/index-D8maDXdr.css    9.50 kB │ gzip:  2.80 kB
+dist/assets/index-CdxeapIO.js   234.29 kB │ gzip: 72.77 kB
+✓ built in 381ms
+
+COMMAND OUTPUT: unit
+npm notice run switchpath@0.1.0 test
+npm notice run tsx --test src/server/app.test.ts
+✔ run endpoint rejects unknown scenario identifiers before worker launch (99.101167ms)
+✔ run endpoint rejects arbitrary fields before worker launch (10.264541ms)
+✔ unknown run IDs return not found (9.618458ms)
+✔ worker environment excludes hosted AI credentials and unrelated variables (0.386292ms)
+✔ browser requests are restricted to the exact fixture origin (0.082542ms)
+✔ API exposes no arbitrary browser automation route (6.87625ms)
+✔ booking fixture rejects impossible ISO dates without changing oracle state (11.070417ms)
+✔ scenario starts are rate limited per client (13.508125ms)
+✔ evidence endpoints do not reveal unknown run or artifact paths (7.448791ms)
+✔ browser startup failure is incomplete test error, never an accessibility verdict (421.39175ms)
+✔ worker timeout is reported as incomplete Test Error and never Confirmed Failure (49.885208ms)
+✔ simultaneous starts reserve the single worker before asynchronous setup (7.620875ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 812.691916
+
+COMMAND OUTPUT: e2e
+npm notice run switchpath@0.1.0 test:e2e
+npm notice run playwright test
+[WebServer] npm notice run switchpath@0.1.0 dev
+[WebServer] npm notice run concurrently -k -n api,web "npm:dev:api" "npm:dev:web"
+[WebServer] (node:77176) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 5 tests using 1 worker
+
+(node:77243) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › tests/broken.spec.ts:3:1 › broken comparison exposes authentic evidence and supports a clean retry (15.0s)
+  ✓  2 [chromium] › tests/dashboard.spec.ts:3:1 › dashboard supports keyboard selection, execution, navigation and narrow reflow (1.6s)
+  ✓  3 [chromium] › tests/dashboard.spec.ts:33:1 › unavailable API gives an accessible error and allows retry (206ms)
+  ✓  4 [chromium] › tests/scenarios.spec.ts:3:1 › fixed confirmation saves by mouse, Enter, and Space from equivalent clean states (1.5s)
+  ✓  5 [chromium] › tests/scenarios.spec.ts:19:1 › direct date-entry keyboard route completes the same task from an equivalent clean state (1.5s)
+
+  5 passed (20.8s)
+
+COMMAND OUTPUT: browser
+{
+  "scans": [
+    {
+      "state": "initial desktop",
+      "violations": [],
+      "incompleteRules": [
+        "color-contrast"
+      ]
+    },
+    {
+      "state": "broken desktop",
+      "violations": [],
+      "incompleteRules": [
+        "color-contrast"
+      ]
+    },
+    {
+      "state": "fixed desktop",
+      "violations": [],
+      "incompleteRules": [
+        "color-contrast"
+      ]
+    },
+    {
+      "state": "alternative desktop",
+      "violations": [],
+      "incompleteRules": [
+        "color-contrast"
+      ]
+    },
+    {
+      "state": "alternative 320px",
+      "violations": [],
+      "incompleteRules": [
+        "color-contrast"
+      ]
+    }
+  ],
+  "pageErrors": []
+}

@@ -150,3 +150,18 @@ test('worker timeout is reported as incomplete Test Error and never Confirmed Fa
     await app.close();
   }
 });
+
+test('simultaneous starts reserve the single worker before asynchronous setup', async () => {
+  const app = await createApp();
+  try {
+    const starts = await Promise.all([1, 2, 3].map(() => app.inject({
+      method: 'POST', url: '/api/runs', payload: { scenarioId: 'fixed' },
+    })));
+    assert.deepEqual(starts.map((response) => response.statusCode).sort(), [202, 503, 503]);
+    for (const response of starts.filter((response) => response.statusCode === 503)) {
+      assert.match(response.json().message, /already in progress/);
+    }
+  } finally {
+    await app.close();
+  }
+});

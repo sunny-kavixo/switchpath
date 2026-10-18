@@ -3,7 +3,7 @@ import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { fork, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { lstat, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -150,6 +150,7 @@ export async function createApp(options: { serveClient?: boolean; workerTimeoutM
   await app.register(rateLimit, { global: true, max: 240, timeWindow: 60_000, hook: 'preHandler' });
   const runs = new Map<string, RunRecord>();
   let activeWorker: ChildProcess | undefined;
+  let startingWorker = false;
   const eventClients = new Map<string, Set<(event: RunEvent) => void>>();
 
   const appendEvent = (runId: string, record: RunRecord, stage: string, message: string) => {
@@ -187,121 +188,124 @@ export async function createApp(options: { serveClient?: boolean; workerTimeoutM
     schema: { body: runBodySchema, response: { 202: startResponseSchema } },
     config: { rateLimit: { max: options.testMode ? 100 : 5, timeWindow: 60_000 } },
   }, async (request, reply) => {
-    if (activeWorker && activeWorker.exitCode === null) {
+    if (startingWorker || (activeWorker && activeWorker.exitCode === null)) {
       return reply.code(503).send({ message: 'A browser run is already in progress.' });
     }
 
-    await pruneRuns();
-    if (runs.size >= MAX_RUNS) return reply.code(503).send({ message: 'Run history is full; try again after temporary evidence expires.' });
-
-    const runId = randomUUID();
-    const artifactDirectory = await mkdtemp(join(tmpdir(), 'switchpath-run-'));
-    const record: RunRecord = {
-      status: 'running', executionState: 'running', events: [], artifacts: [], createdAt: Date.now(), artifactDirectory,
-    };
-    runs.set(runId, record);
-    appendEvent(runId, record, 'accepted', 'Scenario request accepted; preparing a fresh isolated run.');
-    const workerPath = resolve(process.cwd(), 'src', 'runner', 'worker.ts');
-    let child: ChildProcess;
+    // Reserve before asynchronous pruning and directory creation.
+    startingWorker = true;
     try {
-      child = fork(workerPath, [], {
-        cwd: process.cwd(),
-        execArgv: ['--import', 'tsx'],
-        stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-        env: safeWorkerEnvironment(),
-      });
-    } catch {
-      runs.delete(runId);
-      await rm(artifactDirectory, { recursive: true, force: true });
-      return reply.code(503).send({ message: 'Playwright worker could not start.' });
-    }
-    activeWorker = child;
+      await pruneRuns();
+      if (runs.size >= MAX_RUNS) return reply.code(503).send({ message: 'Run history is full; try again after temporary evidence expires.' });
 
-    const timeout = setTimeout(() => {
-      if (record.status === 'running') {
-        record.status = 'test_error';
-        record.executionState = 'incomplete';
-        record.reason = `Test Incomplete: Playwright execution exceeded the ${Math.round((options.workerTimeoutMs ?? 120_000) / 1000)}-second run timeout.`;
-        appendEvent(runId, record, 'incomplete', record.reason);
-        child.kill('SIGTERM');
+      const runId = randomUUID();
+      const artifactDirectory = await mkdtemp(join(tmpdir(), 'switchpath-run-'));
+      const record: RunRecord = {
+        status: 'running', executionState: 'running', events: [], artifacts: [], createdAt: Date.now(), artifactDirectory,
+      };
+      runs.set(runId, record);
+      appendEvent(runId, record, 'accepted', 'Scenario request accepted; preparing a fresh isolated run.');
+      const workerPath = resolve(process.cwd(), 'src', 'runner', 'worker.ts');
+      let child: ChildProcess;
+      try {
+        child = fork(workerPath, [], {
+          cwd: process.cwd(),
+          execArgv: ['--import', 'tsx'],
+          stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+          env: safeWorkerEnvironment(),
+        });
+      } catch {
+        runs.delete(runId);
+        await rm(artifactDirectory, { recursive: true, force: true });
+        return reply.code(503).send({ message: 'Playwright worker could not start.' });
       }
-    }, options.workerTimeoutMs ?? 120_000).unref();
-    record.timeout = timeout;
+      activeWorker = child;
 
-    child.on('message', (message: WorkerMessage) => {
-      if (record.status !== 'running' || !isWorkerMessage(message)) return;
-      if (message.type === 'progress') {
-        appendEvent(runId, record, message.event.stage, message.event.message);
-        return;
-      }
-      if (message.type === 'result') {
-        record.handlingResult = true;
-        void (async () => {
-          const validOutcome = validateOutcome(message.result);
-          const artifacts = await inventoryArtifacts(record.artifactDirectory);
-          const totalBytes = artifacts.reduce((sum, artifact) => sum + artifact.size, 0);
-          record.artifacts = artifacts.slice(0, MAX_ARTIFACT_COUNT);
-          if (!validOutcome || artifacts.length > MAX_ARTIFACT_COUNT || totalBytes > MAX_ARTIFACT_BYTES) {
-            record.status = validOutcome ? 'test_error' : 'inconclusive';
-            record.executionState = 'incomplete';
-            record.reason = validOutcome ? 'Captured evidence exceeded the configured safety limits.' : 'Inconclusive — Completion Not Verified.';
-            appendEvent(runId, record, 'inconclusive', record.reason);
-            return;
-          }
-          const { regressionTestSource, ...workerResult } = message.result;
-          const publicResult = { ...workerResult, artifacts };
-          if (regressionTestSource && message.result.status === 'confirmed_failure'
-            && message.result.regressionReplay?.brokenFailsAsExpected && message.result.regressionReplay.fixedPasses
-            && Buffer.byteLength(regressionTestSource) <= 100_000
-            && totalBytes + Buffer.byteLength(regressionTestSource) <= MAX_ARTIFACT_BYTES) {
-            const regressionPath = join(record.artifactDirectory, 'regression-test.spec.ts');
-            await writeFile(regressionPath, regressionTestSource, { encoding: 'utf8', mode: 0o600 });
-            artifacts.push({ id: 'regression-test.spec.ts', contentType: 'text/plain; charset=utf-8', size: Buffer.byteLength(regressionTestSource) });
-            record.regressionTestSource = regressionTestSource;
-          }
-          record.result = publicResult;
-          record.status = message.result.status;
-          record.executionState = 'completed';
-          appendEvent(runId, record, 'complete', `Run completed with ${record.status.replace('_', ' ')}.`);
-        })().catch(async () => {
+      const timeout = setTimeout(() => {
+        if (record.status === 'running') {
           record.status = 'test_error';
           record.executionState = 'incomplete';
-          record.reason = 'Test Error: captured evidence could not be validated.';
-          appendEvent(runId, record, 'error', record.reason);
-          await rm(record.artifactDirectory, { recursive: true, force: true });
-        }).finally(() => { record.handlingResult = false; });
-      } else if (message.type === 'error') {
-        record.status = 'test_error';
-        record.executionState = 'incomplete';
-        record.reason = message.reason;
-        appendEvent(runId, record, message.category === 'navigation_timeout' ? 'incomplete' : 'error', message.reason);
-        void inventoryArtifacts(record.artifactDirectory).then((artifacts) => {
-          record.artifacts = artifacts.slice(0, MAX_ARTIFACT_COUNT);
-        });
-      }
-    });
-    child.on('error', () => {
-      if (record.status === 'running' && !record.handlingResult) {
-        record.status = 'test_error';
-        record.executionState = 'incomplete';
-        record.reason = 'Playwright worker could not start.';
-        appendEvent(runId, record, 'browser_startup', record.reason);
-      }
-    });
-    child.on('exit', (code) => {
-      clearTimeout(timeout);
-      record.timeout = undefined;
-      if (record.status === 'running') {
-        record.status = 'test_error';
-        record.executionState = 'incomplete';
-        record.reason = code === null ? 'Playwright worker was interrupted.' : 'Playwright worker exited before returning a result.';
-        appendEvent(runId, record, 'incomplete', record.reason);
-      }
-      if (activeWorker === child) activeWorker = undefined;
-    });
+          record.reason = `Test Incomplete: Playwright execution exceeded the ${Math.round((options.workerTimeoutMs ?? 120_000) / 1000)}-second run timeout.`;
+          appendEvent(runId, record, 'incomplete', record.reason);
+          child.kill('SIGTERM');
+        }
+      }, options.workerTimeoutMs ?? 120_000).unref();
+      record.timeout = timeout;
 
-    child.send({ scenarioId: request.body.scenarioId, runId, artifactDirectory });
-    return reply.code(202).send({ runId, status: 'running' as const });
+      child.on('message', (message: WorkerMessage) => {
+        if (record.status !== 'running' || !isWorkerMessage(message)) return;
+        if (message.type === 'progress') {
+          appendEvent(runId, record, message.event.stage, message.event.message);
+          return;
+        }
+        if (message.type === 'result') {
+          record.handlingResult = true;
+          void (async () => {
+            const validOutcome = validateOutcome(message.result);
+            const artifacts = await inventoryArtifacts(record.artifactDirectory);
+            const totalBytes = artifacts.reduce((sum, artifact) => sum + artifact.size, 0);
+            record.artifacts = artifacts.slice(0, MAX_ARTIFACT_COUNT);
+            if (!validOutcome || artifacts.length > MAX_ARTIFACT_COUNT || totalBytes > MAX_ARTIFACT_BYTES) {
+              record.status = validOutcome ? 'test_error' : 'inconclusive';
+              record.executionState = 'incomplete';
+              record.reason = validOutcome ? 'Captured evidence exceeded the configured safety limits.' : 'Inconclusive — Completion Not Verified.';
+              appendEvent(runId, record, 'inconclusive', record.reason);
+              return;
+            }
+            const { regressionTestSource, ...workerResult } = message.result;
+            const publicResult = { ...workerResult, artifacts };
+            if (regressionTestSource && message.result.status === 'confirmed_failure'
+              && message.result.regressionReplay?.brokenFailsAsExpected && message.result.regressionReplay.fixedPasses
+              && Buffer.byteLength(regressionTestSource) <= 100_000
+              && artifacts.some(({ id }) => id === 'regression-test.spec.ts')) {
+              record.regressionTestSource = regressionTestSource;
+            }
+            record.result = publicResult;
+            record.status = message.result.status;
+            record.executionState = 'completed';
+            appendEvent(runId, record, 'complete', `Run completed with ${record.status.replace('_', ' ')}.`);
+          })().catch(async () => {
+            record.status = 'test_error';
+            record.executionState = 'incomplete';
+            record.reason = 'Test Error: captured evidence could not be validated.';
+            appendEvent(runId, record, 'error', record.reason);
+            await rm(record.artifactDirectory, { recursive: true, force: true });
+          }).finally(() => { record.handlingResult = false; });
+        } else if (message.type === 'error') {
+          record.status = 'test_error';
+          record.executionState = 'incomplete';
+          record.reason = message.reason;
+          appendEvent(runId, record, message.category === 'navigation_timeout' ? 'incomplete' : 'error', message.reason);
+          void inventoryArtifacts(record.artifactDirectory).then((artifacts) => {
+            record.artifacts = artifacts.slice(0, MAX_ARTIFACT_COUNT);
+          });
+        }
+      });
+      child.on('error', () => {
+        if (record.status === 'running' && !record.handlingResult) {
+          record.status = 'test_error';
+          record.executionState = 'incomplete';
+          record.reason = 'Playwright worker could not start.';
+          appendEvent(runId, record, 'browser_startup', record.reason);
+        }
+      });
+      child.on('exit', (code) => {
+        clearTimeout(timeout);
+        record.timeout = undefined;
+        if (record.status === 'running' && !record.handlingResult) {
+          record.status = 'test_error';
+          record.executionState = 'incomplete';
+          record.reason = code === null ? 'Playwright worker was interrupted.' : 'Playwright worker exited before returning a result.';
+          appendEvent(runId, record, 'incomplete', record.reason);
+        }
+        if (activeWorker === child) activeWorker = undefined;
+      });
+
+      child.send({ scenarioId: request.body.scenarioId, runId, artifactDirectory });
+      return reply.code(202).send({ runId, status: 'running' as const });
+    } finally {
+      startingWorker = false;
+    }
   });
 
   app.get<{ Params: { runId: string } }>('/api/runs/:runId', {

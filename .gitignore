@@ -229,3 +229,7 @@ dist/
 playwright-report/
 test-results/
 tests/generated/
+
+# Local presentation artifacts excluded from this publication
+.DS_Store
+/devpost/demo-video/

@@ -102,7 +102,7 @@ export function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <a className="wordmark" href="#main" aria-label="SwitchPath home">
+        <a className="wordmark" href="#main">
           <span className="brand-mark" aria-hidden="true">S</span>
           <span>SwitchPath</span>
         </a>
@@ -126,7 +126,7 @@ export function App() {
             </label>
           ))}
         </fieldset>
-        <div className="task-facts" aria-label="Expected booking task state">
+        <div className="task-facts" role="group" aria-label="Expected booking task state">
           <div><span>BOOKING</span><strong>BK-2048</strong></div>
           <div><span>CLEAN START</span><strong>2026-10-10</strong></div>
           <div><span>EXPECTED DATE</span><strong>2026-10-20</strong></div>
@@ -136,7 +136,7 @@ export function App() {
         </button>
       </section>
 
-      <section className="workspace" aria-labelledby="workspace-title">
+      <section className="workspace" id="test-workspace" aria-labelledby="workspace-title">
         <div className="section-heading">
           <div>
             <p className="eyebrow">CONTROLLED DEMONSTRATION</p>
@@ -146,7 +146,7 @@ export function App() {
         </div>
         <p className="booking-summary">Existing booking <strong>BK-2048</strong><span aria-hidden="true">·</span> Current date <strong>2026-10-10</strong></p>
 
-        <div className="comparison" aria-label="Mouse and keyboard test comparison">
+        <div className="comparison" role="group" aria-label="Mouse and keyboard test comparison">
           <article className="journey-panel">
             <div className="journey-title"><span className="route-dot mouse-dot" aria-hidden="true" />Mouse baseline</div>
             <p>Select a new booking date and confirm the change.</p>
@@ -234,7 +234,7 @@ export function App() {
                   <span className="artifact-kind" aria-hidden="true">{artifact.contentType === 'image/png' ? 'IMG' : artifact.contentType === 'application/zip' ? 'ZIP' : artifact.id.endsWith('.log.json') ? 'LOG' : 'TS'}</span>
                   <span className="artifact-name">{artifact.id}</span>
                   <span className="artifact-size">{Math.max(1, Math.round(artifact.size / 1024))} KB</span>
-                  {runId && <a href={`/api/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifact.id)}`} download={artifact.id}>Download</a>}
+                  {runId && <a href={`/api/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifact.id)}`} download={artifact.id} aria-label={`Download ${artifact.id}`}>Download</a>}
                 </li>
               ))}
             </ul>

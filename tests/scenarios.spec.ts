@@ -32,4 +32,6 @@ test('direct date-entry keyboard route completes the same task from an equivalen
   const result = await (await request.get(`/api/runs/${encodeURIComponent(runId)}`)).json();
   expect(result.result.mouse.initialDate).toBe('2026-10-10');
   expect(result.result.keyboard[0].initialDate).toBe('2026-10-10');
+  await page.setViewportSize({ width: 320, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

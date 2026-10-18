@@ -6,6 +6,7 @@ export default defineConfig({
   testDir: regressionMode ? './tests/generated' : './tests',
   testIgnore: regressionMode ? [] : ['**/generated/**'],
   fullyParallel: false,
+  workers: 1, // The API intentionally permits only one browser run at a time.
   timeout: 180_000,
   expect: { timeout: 10_000 },
   reporter: 'list',
@@ -15,7 +16,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: {
+  webServer: regressionMode ? undefined : {
     command: 'npm run dev',
     url: 'http://127.0.0.1:5173',
     reuseExistingServer: !process.env.CI,

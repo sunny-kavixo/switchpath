@@ -1,0 +1,26 @@
+{
+  "broken-desktop.png": {
+    "source": "devpost/demo-assets/broken-desktop.png",
+    "sha256": "a1c9cec9bb36bf7aee44c0f454cfae48d200f9807213c32ad47ae422f587f539"
+  },
+  "mouse.png": {
+    "source": "devpost/demo-assets/mouse.png",
+    "sha256": "6c2baee0be8dd9a2f35a20824ceabe8969f5a47ba702f063c6abdd469976d4ed"
+  },
+  "keyboard-enter.png": {
+    "source": "devpost/demo-assets/keyboard-enter.png",
+    "sha256": "b26c9781c52c4591b3fa7cdd5db71e75c52f16468f9f33de3f5ed237dc2f0ae5"
+  },
+  "fixed-desktop.png": {
+    "source": "devpost/demo-assets/fixed-desktop.png",
+    "sha256": "0df5ba5393d5ecc957a8a276bb29515110482b8ec89636cf1faf4bc082a8b10f"
+  },
+  "alternative-desktop.png": {
+    "source": "devpost/demo-assets/alternative-desktop.png",
+    "sha256": "9350b1142bf85af63cacc3a12769742d12cbe083a765cf9824d334fa2ee7af11"
+  },
+  "alternative-mobile.png": {
+    "source": "devpost/demo-assets/alternative-mobile.png",
+    "sha256": "59a707a4d476053a5b6739b4fd898fb89bd24a157ef3aed8acb777221b6b14e6"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-10-12",
+  "head": "99d8cd60cf0b4947a0be79b8796b3ca79ecb1d81",
+  "dirtyWorkingTree": true,
+  "sourceMatchesLatestCompletedTestRun": true,
+  "node": "v24.15.0",
+  "npm": "12.1.0",
+  "testEvidence": {
+    "build": "PASS",
+    "backendPassed": 12,
+    "e2ePassed": 5,
+    "e2eSeconds": 20.8,
+    "rerunForPackaging": false
+  },
+  "sourceSha256": {
+    "index.html": "4fa6f4a47d9b34449345e14fafb49d8aa2bd45bba2768910e854d636147152f5",
+    "package-lock.json": "6ac94ab3b8da236d0488f72825ab366f396b79a61c1e85af1c5dbdbd218b1f02",
+    "package.json": "e9b8d4267273c6b5d083ea07592470d077877dc2f93812fbd2ac4f02062b0f68",
+    "playwright.config.ts": "bfb97d0fb756db516ec1bc85a937dffcdbc0b6e77f615ef1dd26d455c3005ddb",
+    "src/client/App.tsx": "a4077a1d01a1790535f595f5221670662d14738babc655664e16f924c9c985f1",
+    "src/client/main.tsx": "824ae064dd0f6d45d88be111a3ede4d417346f3a7b53748f185cef86acf318ce",
+    "src/client/styles.css": "9b536285abb133255f098f26f26d01a9d2735f542767d1f71eda6e8f3ad4bef5",
+    "src/runner/regression-template.ts": "d2db9350e5c000dc2e92fa159076d305aaa3d716de4a76f7cf67afe0f3a9d993",
+    "src/runner/worker.ts": "84fb87af1c9a1ab5d5de4e9b67147344a63985082dd8e726a145db199cd8906e",
+    "src/server/app.test.ts": "e0076e42a336587e6f12933846f83b2e2d8f1401ebb6c536d4f2df4d34a3d701",
+    "src/server/app.ts": "284f2e818997a76d2e6d767a77134e7c195fd4cff398d1c1238b59e380d059a7",
+    "src/server/booking-fixture.ts": "f392f34df304b96698a9f68241c9732c9778d75133d3e770cce52796864a170c",
+    "src/server/index.ts": "e93f0b3caa413d58a1b2f0a5229d7ac98a5fb45acf684c346f83789252b1368a",
+    "tests/broken.spec.ts": "899139500f3c6e9e8e15baa033f6632da63c298613dbb17d4fcc01cc72979425",
+    "tests/dashboard.spec.ts": "d7f41ff69496f06a74bb133c417003ed248475b7a4d0f01f29efb86947d2dd77",
+    "tests/scenarios.spec.ts": "1fef0c641f430676812890bc49cc95e9cbd0a37292833cb5aefb061b699c6f5b",
+    "tsconfig.json": "2a15f4c7428729b7e118efd1aad32a5da0bf89d0c06f1972cf6e732bd20c2c0a",
+    "vite.config.ts": "a7f3fd5955cd2477d312fa3ce839809b59b070448e7d5ad38337ae0a064ce02d"
+  },
+  "builtFilesSha256": {
+    "dist/assets/index-CdxeapIO.js": "9d9c07a1d60aef6d2d9481ca98e49baecc279d7c73c389c4848112ae8f54c457",
+    "dist/assets/index-D8maDXdr.css": "e3aa3e6825f548d94c33108ee8f90d48bbb3e8635a6d3f40a84e686d47887cd3",
+    "dist/index.html": "a7d26a8a49bc0beadf04090ec41f5bac797b9a855c7cf43c5b2fdc461dd3e312"
+  }
+}

@@ -35,6 +35,8 @@ test('broken comparison exposes authentic evidence and supports a clean retry', 
   expect(eventStream).toContain('keyboard_run');
   expect(eventStream).toContain('event: complete');
   expect(status.artifacts.length).toBeGreaterThan(0);
+  expect(new Set(status.artifacts.map((artifact: { id: string }) => artifact.id)).size).toBe(status.artifacts.length);
+  expect(new Set(status.result.artifacts.map((artifact: { id: string }) => artifact.id)).size).toBe(status.result.artifacts.length);
 
   const reportResponse = await request.get(`/api/runs/${encodeURIComponent(runId)}/report`);
   expect(reportResponse.status()).toBe(200);
