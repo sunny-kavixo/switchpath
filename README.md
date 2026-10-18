@@ -131,7 +131,9 @@ Only three controlled scenarios are supported. Booking state is in memory and ar
 
 ## Project status and contributing
 
-Working local proof of concept; this documentation and the existing release fixes form an unpublished release candidate. See [release notes](docs/RELEASE_NOTES.md). Public main may lag until the owner approves publication.
+SwitchPath is a completed, publicly available proof of concept featuring three controlled accessibility scenarios, mouse-versus-keyboard comparisons, independent booking-state verification, and generated Playwright regression tests.
+
+The source code, documentation, screenshots, and recorded verification evidence are published. The project has not been deployed as a public production service. Screen-reader, full manual accessibility, and cross-browser verification remain outside the completed testing scope.
 
 For a contribution, describe a reproducible issue and the affected scenario. Keep the scenario-only API, sandboxing and independent outcome checks intact. Run the relevant checks in [testing](docs/TESTING.md); do not include credentials, generated output or personal data.
 
